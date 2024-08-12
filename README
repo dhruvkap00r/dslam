@@ -1,0 +1,28 @@
+
+
+SLAM Algorightm:
+
+
+Probabilistic SLAM:
+  it gives the position or location of the robot and location of the landmarks, given all the actions taken by robot, observation and initial state.
+  For all of this, we require a observation model and a state transition model.
+
+Observation model:
+  describe the probability of getting an observation Z(k) given the location X(k) and map.
+    P(Z(k)|X(k), m)
+
+Motion model:
+  it gives probability destribution of state transition. It is a Markov process, probability of getting location X(k) depends on the previus location X(k-1) and action taken U(k).
+
+
+While making observations,
+it is hard to make correct decisions about landmark's locations, but we can get accurate location of a landmark relative to other landmark. 
+
+P(M(i), M(j)) is higher than P(M(i)).
+
+and it is proven that this probability monotonically increases.
+
+** Every Landmark should be interlinked, so we can make observation and update their location,relativily, independent of our location.
+
+
+
