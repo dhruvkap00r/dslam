@@ -1,3 +1,9 @@
+TODO:
+  Add camera pose estimation
+  Create 3d representaion of the observations
+  Start mapping and localization process
+
+
 
 
 SLAM Algorightm:
@@ -25,4 +31,22 @@ and it is proven that this probability monotonically increases.
 ** Every Landmark should be interlinked, so we can make observation and update their location,relativily, independent of our location.
 
 
+Computer Vision:
+
+idk about other applications but for doing SLAM we need camera rotation and  movement information because only then we can compare it with the real world
+
+
+
+Fundamental matrix translation, essential matrix transformation:
+  both are same, essential matrix gives you the information about rotations and translation and fundamental matrix gives you the same information but additionally it gives you information about intrinsic information
+
+intrinsic parameters:
+ 
+
+Camera Pose estimation:
+  intrinsic matrix: K = [f(X) s x(0)]
+                        [0 f(Y) y(0)]
+                        [0    0    1]
+  focal lenghth: it is the length from camera film to pinhole.
+  principal point offset: It is the location of the principal point relative to the film's origin.
 
