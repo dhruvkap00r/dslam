@@ -1,3 +1,4 @@
+#!/usr/bin/python3.10
 from skimage.measure import ransac
 from skimage.transform import FundamentalMatrixTransform
 import itertools
@@ -12,7 +13,7 @@ import matplotlib.pyplot as plt
 
 """
 import time
-cap = cv2.VideoCapture('test_ohio.mp4')
+cap = cv2.VideoCapture('sample.mp4')
 orb = cv2.ORB_create(nfeatures=100, scaleFactor=1.2)
 
 
@@ -30,25 +31,42 @@ Cx = HEIGHT//2
 Cy = WIDTH//2
 f_x = 0
 f_y = 0
-camera_pose = [[f_x,0, Cx],#setting skew=0
-               [0, f_y, Cy],
-               [0, 0, 1]]
+camera_pose = np.array([[f_x,0, Cx],#setting skew=0
+                        [0, f_y, Cy],
+                        [0, 0, 1]])
+class Extract:
+  def __init__(self, frame):
+    self.frame = frame
 
 
+  def extract_features(self):
+    kp = cv2.goodFeaturesToTrack(np.mean(self.frame, axis=2).astype(np.uint8), 3000, 0.001, 3)
+    #kp, des = sift.detectAndCompute(frame, None)
+    kp = np.intp(kp)
+    kps = [cv2.KeyPoint(float(c[0][0]), float(c[0][1]), 1) for c in kp]
+    kps, des = orb.compute(self.frame, kps)
+    return kps, des
 
+  def pose(x,y):
+    return camera_pose*x, camera_pase*y
+    
+  def extractRt(m):
+    W = np.asmatrix([[0,-1,0],
+                [1,0,0],
+                [0,0,1]])
+    
+    Z = np.asmatrix([[0,1,0],
+                [-1,0,0],
+                [0,0,1]])
 
+    U,E,VT = np.linalg.svd(m)
+    R = np.dot(np.dot(U, np.linalg.inv(W)), VT)
+    t = U[:,2]
+    T = np.eye(4)
+    T[:3,3] = t
+    T[:3, :3] = R
+    return T
 
-
-def extract_features(frame):
-  kp = cv2.goodFeaturesToTrack(np.mean(frame, axis=2).astype(np.uint8), 3000, 0.001, 3)
-  #kp, des = sift.detectAndCompute(frame, None)
-  kp = np.intp(kp)
-  kps = [cv2.KeyPoint(float(c[0][0]), float(c[0][1]), 1) for c in kp]
-  kps, des = orb.compute(frame, kps)
-  return kps, des
-
-def pose(x,y):
-  return camera_pose*x, camera_pase*y
 
 
 def Mapping(frame, kp, des, prev_kp, prev_des):
@@ -71,6 +89,7 @@ def Mapping(frame, kp, des, prev_kp, prev_des):
       ret.append((kp1, kp2))
   except:
     pass 
+  T = np.zeros((4,4))
   prev_kp = kp
   prev_des = des
   if len(ret) > 0:
@@ -79,18 +98,23 @@ def Mapping(frame, kp, des, prev_kp, prev_des):
       try:
         model, inliers = ransac((ret[:, 0], ret[:, 1]),
                               EssentialMatrixTransform,
+                              #FundamenalMatrixTransform,
                               min_samples=8,
                               residual_threshold=2,
-                              max_trials=10)
+                              max_trials=100)
+        if np.sum(inliers) == None:
+          print("no")
+        else:
+          T = extract(model.params)
+
+
         ret = ret[inliers]
-      except:
+      except Exception as error:
         pass
   return ret
 
   #make assumptions
 
-def pose_estimation(ret):
-  #first we need an initial state to start with
 
   
 
@@ -109,7 +133,7 @@ def display(frame, kp, ret):
   except:
     print("no match")
 
-     
+#from Frame import Display
     
 
 
@@ -121,15 +145,17 @@ while True:
   ret, frame = cap.read()
   if not ret:
     break
-  kp,des = extract_features(frame)
+  kp,des = Extract(frame).extract_features()
   matches = []
   if len(prev_kp) > 0:
 
     matches = (Mapping(frame, kp,des,prev_kp, prev_des))
-
+  #  dis = Display()
+   # dis.frame(matches)
   else:
     prev_kp = kp
     prev_des = des
+  print(frame[-1].shape)
   
   display(frame, kp, matches)
   cv2.imshow('frame', frame)
