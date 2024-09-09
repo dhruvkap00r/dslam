@@ -4,6 +4,7 @@ from skimage.transform import FundamentalMatrixTransform
 import itertools
 from skimage.transform import EssentialMatrixTransform
 import cv2
+from Extractor import Extract
 import numpy as np
 import matplotlib.pyplot as plt
 """
@@ -13,8 +14,7 @@ import matplotlib.pyplot as plt
 
 """
 import time
-cap = cv2.VideoCapture('sample.mp4')
-orb = cv2.ORB_create(nfeatures=100, scaleFactor=1.2)
+cap = cv2.VideoCapture('test_countryroad.mp4')
 
 
 
@@ -29,45 +29,28 @@ WIDTH = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
 Cx = HEIGHT//2
 Cy = WIDTH//2
-f_x = 0
-f_y = 0
-camera_pose = np.array([[f_x,0, Cx],#setting skew=0
-                        [0, f_y, Cy],
+F =  512 
+
+
+camera_pose = np.array([[F,0, Cx],#setting skew=0
+                        [0, F, Cy],
                         [0, 0, 1]])
-class Extract:
-  def __init__(self, frame):
-    self.frame = frame
 
 
-  def extract_features(self):
-    kp = cv2.goodFeaturesToTrack(np.mean(self.frame, axis=2).astype(np.uint8), 3000, 0.001, 3)
-    #kp, des = sift.detectAndCompute(frame, None)
-    kp = np.intp(kp)
-    kps = [cv2.KeyPoint(float(c[0][0]), float(c[0][1]), 1) for c in kp]
-    kps, des = orb.compute(self.frame, kps)
-    return kps, des
+def add_ones(x):
+ if len(x.shape) == 1:
+   return np.concatenate([x,np.array([1.0])], axis=0)
+ else:
+   return np.concatenate([x, np.ones((x.shape[0], 1))], axis=1)
 
-  def pose(x,y):
-    return camera_pose*x, camera_pase*y
-    
-  def extractRt(m):
-    W = np.asmatrix([[0,-1,0],
-                [1,0,0],
-                [0,0,1]])
-    
-    Z = np.asmatrix([[0,1,0],
-                [-1,0,0],
-                [0,0,1]])
-
-    U,E,VT = np.linalg.svd(m)
-    R = np.dot(np.dot(U, np.linalg.inv(W)), VT)
-    t = U[:,2]
-    T = np.eye(4)
-    T[:3,3] = t
-    T[:3, :3] = R
-    return T
+def kp_norm(pts):
+  return np.dot(np.linalg.inv(camera_pose), add_ones(pts).T).T[:,0:2]
 
 
+
+def kp_denorm(pts):
+  ret = np.dot(camera_pose, np.array([pts[0], pts[1], 1.0]))
+  return int(round(ret[0])), int(round(ret[1]))
 
 def Mapping(frame, kp, des, prev_kp, prev_des):
   #connect every landmarks
@@ -80,58 +63,48 @@ def Mapping(frame, kp, des, prev_kp, prev_des):
   ret = []
   try:
     for m in matches:
-
       kp1 = kp[m.queryIdx].pt
       kp2 = kp[m.trainIdx].pt
-      #x1, y1 = kp1
-      #x2, y2 = kp2
-      #x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+      
       ret.append((kp1, kp2))
   except:
-    pass 
-  T = np.zeros((4,4))
+    pass
   prev_kp = kp
   prev_des = des
   if len(ret) > 0:
     ret = np.array(ret)
+    ret[:, 0, :] = kp_norm(ret[:,0,:])
+    ret[:, 1, :] = kp_norm(ret[:,1,:])
     if len(ret[:,0]) > 8 and len(ret[:,1]) > 8:
       try:
         model, inliers = ransac((ret[:, 0], ret[:, 1]),
                               EssentialMatrixTransform,
                               #FundamenalMatrixTransform,
                               min_samples=8,
-                              residual_threshold=2,
+                              residual_threshold=0.05,
                               max_trials=100)
         if np.sum(inliers) == None:
           print("no")
         else:
-          T = extract(model.params)
+          T = Extract(frame).extractRt(model.params)
 
 
         ret = ret[inliers]
       except Exception as error:
-        pass
+        print(error)
   return ret
 
   #make assumptions
 
-
-  
-
-
-  
 def display(frame, kp, ret):
   for p in kp:
     x, y = map(lambda x: int(round(x)), p.pt)
     cv2.circle(frame,(x,y), 2, (0,255,0), 1)
-  try:
-    for point in ret:
-      x1, y1 = point[0]
-      x2, y2 = point[1]
-      x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-      cv2.line(frame,(x1, y1),(x2,y2), (0,0,255), 1)
-  except:
-    print("no match")
+  for point in ret:
+    x1, y1 = kp_denorm(point[0])
+    x2, y2 =  kp_denorm(point[1])
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+    cv2.line(frame,(x1, y1),(x2,y2), (0,0,255), 1)
 
 #from Frame import Display
     
@@ -150,12 +123,9 @@ while True:
   if len(prev_kp) > 0:
 
     matches = (Mapping(frame, kp,des,prev_kp, prev_des))
-  #  dis = Display()
-   # dis.frame(matches)
   else:
     prev_kp = kp
     prev_des = des
-  print(frame[-1].shape)
   
   display(frame, kp, matches)
   cv2.imshow('frame', frame)
