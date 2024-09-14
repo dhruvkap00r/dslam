@@ -4,6 +4,11 @@ TODO:
   Start mapping and localization process
 
 
+Extractor.py: extract features and pose
+Mapping.py: returns pose and matches and triangulate points to 3d
+main.py: this is what we use to run SLAM
+Frame.py: use pangolin to visualize map
+
 
 
 SLAM Algorightm:
