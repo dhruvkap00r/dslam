@@ -8,7 +8,8 @@ import cv2
 from Extractor import Extract
 import numpy as np
 import matplotlib.pyplot as plt
-def Mapping(frame, kp, des, prev_kp, prev_des):
+from helpers import *
+def Mapping(frame, kp, des, prev_kp, prev_des, K):
   #connect every landmarks
   bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
   matches = bf.match(des,prev_des)
@@ -30,8 +31,8 @@ def Mapping(frame, kp, des, prev_kp, prev_des):
   prev_des = des
   if len(ret) > 0:
     ret = np.array(ret)
-    ret[:, 0, :] = kp_norm(ret[:,0,:])
-    ret[:, 1, :] = kp_norm(ret[:,1,:])
+    ret[:, 0, :] = kp_norm(ret[:,0,:], K)
+    ret[:, 1, :] = kp_norm(ret[:,1,:], K)
     if ret[:,0].shape[0] > 8:
       try:
         model, inliers = ransac((ret[:, 0], ret[:, 1]),
@@ -56,13 +57,13 @@ def Mapping(frame, kp, des, prev_kp, prev_des):
 
 #Triangulation
 
-def Triangulation(kp, T):
+def Triangulation(kp, T, K):
   if len(T) < 4:
     return
     
   T = np.array(T)
   T = T[:3, :4]
-  T = np.dot(camera_pose, T)
+  T = np.dot(K, T)
   t = cv2.triangulatePoints(T, T,kp[0], kp[1])
   ret = np.zeros((2,3))
   kp = t[:3] / t[3]
